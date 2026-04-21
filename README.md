@@ -1,6 +1,7 @@
 # Mario-Style Side-Scrolling Game
 
 A simple side-scrolling platformer game built with Python and Pygame.
+![Screenshot](assets/images/screenshot.png)
 
 ## Features
 

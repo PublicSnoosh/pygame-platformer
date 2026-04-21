@@ -208,19 +208,40 @@ class Platform(pygame.sprite.Sprite):
 
 
 class Enemy(pygame.sprite.Sprite):
-    def __init__(self, x, y):
+    def __init__(self, x, y, min_x, max_x):
         super().__init__()
 
+        self.x = x
+        self.y = y
+        self.min_x = min_x
+        self.max_x = max_x
+        self.speed = 2
+
         self.image = pygame.Surface((30, 30))
-        self.image.fill(BLUE)
+        self.image.fill((0, 0, 255))  # BLUE
         self.rect = self.image.get_rect(topleft=(x, y))
 
-        self.vel_x = 0
+        self.vel_x = self.speed
         self.vel_y = 0
         self.gravity = 0.8
 
         self.squashed = False
         self.squash_timer = 0
+        self.squashed_height = 10  # needed for squash()
+
+    def update(self):
+        # Move left/right
+        self.rect.x += self.vel_x
+
+        # Reverse direction at boundaries
+        if self.rect.x <= self.min_x or self.rect.x >= self.max_x:
+            self.vel_x *= -1
+
+        # Apply gravity
+        self.apply_gravity()
+
+        if self.squashed:
+            self.squash_timer += 1
 
     def apply_gravity(self):
         self.vel_y += self.gravity
@@ -229,11 +250,10 @@ class Enemy(pygame.sprite.Sprite):
     def squash(self):
         self.squashed = True
 
-        # keep bottom aligned
         bottom = self.rect.bottom
 
         self.image = pygame.Surface((30, self.squashed_height))
-        self.image.fill((200, 200, 255))  
+        self.image.fill((200, 200, 255))
 
         self.rect = self.image.get_rect(midbottom=(self.rect.centerx, bottom))
 
