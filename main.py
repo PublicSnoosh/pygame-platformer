@@ -1,3 +1,5 @@
+import platform
+
 import pygame
 from pygame.locals import *
 
@@ -207,7 +209,7 @@ class Platform(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(topleft=(x, y))
 
 
-class Enemy(pygame.sprite.Sprite):
+class GroundEnemy(pygame.sprite.Sprite):
     def __init__(self, x, y, min_x, max_x):
         super().__init__()
 
@@ -229,19 +231,23 @@ class Enemy(pygame.sprite.Sprite):
         self.squash_timer = 0
         self.squashed_height = 10  # needed for squash()
 
-    def update(self):
-        # Move left/right
+    def update(self, platforms):
+        if self.squashed:
+            self.squash_timer += 1
+            return  # stop moving when dead
+
         self.rect.x += self.vel_x
 
-        # Reverse direction at boundaries
         if self.rect.x <= self.min_x or self.rect.x >= self.max_x:
             self.vel_x *= -1
 
-        # Apply gravity
         self.apply_gravity()
 
-        if self.squashed:
-            self.squash_timer += 1
+        for p in platforms:
+            if self.rect.colliderect(p.rect):
+                if self.vel_y > 0:
+                    self.rect.bottom = p.rect.top
+                    self.vel_y = 0
 
     def apply_gravity(self):
         self.vel_y += self.gravity
@@ -257,6 +263,44 @@ class Enemy(pygame.sprite.Sprite):
 
         self.rect = self.image.get_rect(midbottom=(self.rect.centerx, bottom))
 
+class ZombieEnemy(GroundEnemy):
+    def __init__(self, x, y, min_x, max_x):
+        super().__init__(x, y, min_x, max_x)
+        self.vel_x = self.speed
+        self.image.fill((100, 200, 100)) 
+
+class SkeletonEnemy(GroundEnemy):
+    def __init__(self, x, y, min_x, max_x):
+        super().__init__(x, y, min_x, max_x)
+        self.speed = 4
+        self.vel_x = self.speed
+        self.image.fill((220, 202, 220))
+
+class FlyingEnemy(pygame.sprite.Sprite):
+    def __init__(self, x, y, min_x, max_x): 
+        super().__init__()
+
+        self.image = pygame.Surface((30, 30))
+        self.image.fill((150, 0, 150))  
+        self.rect = self.image.get_rect(topleft=(x, y))
+
+        self.min_x = min_x
+        self.max_x = max_x
+        self.vel_x = 3   
+
+    def update(self):
+        self.rect.x += self.vel_x
+
+        if self.rect.x <= self.min_x or self.rect.x >= self.max_x:
+            self.vel_x *= -1     
+
+class GraveCrawler(GroundEnemy):
+    def update(self, platforms, player):
+        if abs(self.rect.x - player.rect.x) < 200:
+            super().update(platforms)
+       
+
+
 player = Player()
 
 platforms = [
@@ -267,8 +311,11 @@ platforms = [
 ]
 
 enemies = [
-    Enemy(300, 470, 250, 500),
-    Enemy(800, 370, 750, 950),
+    GroundEnemy(200, 470, 150, 400),
+    ZombieEnemy(400, 470, 350, 650),
+    SkeletonEnemy(700, 470, 650, 900),
+    FlyingEnemy(600, 120, 550, 850),
+    GraveCrawler(1000, 470, 950, 1200),
 ]
 
 all_sprites = pygame.sprite.Group(player, *platforms, *enemies)
@@ -285,9 +332,14 @@ while running:
     player.check_enemy_collisions(enemies)
 
     for e in enemies[:]:
-        e.update()
+        if isinstance(e, GraveCrawler):
+            e.update(platforms, player)
+        elif isinstance(e, GroundEnemy):
+            e.update(platforms)
+        else:
+            e.update()
 
-        if e.squashed and e.squash_timer > 30:  # ~0.5 seconds
+        if hasattr(e, 'squashed') and e.squashed and e.squash_timer > 30:  # ~0.5 seconds
             enemies.remove(e)
             all_sprites.remove(e)
 
